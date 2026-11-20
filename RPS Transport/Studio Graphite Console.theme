@@ -1,6 +1,6 @@
 @description Studio Graphite Console
-@version 1.0.2
-@changelog Use Roboto Condensed Regular for FX inserts, sends, and item labels. Center insert names, simplify bypass styling, and improve mixer folder indicator contrast.
+@version 1.0.3
+@changelog Make transport button highlights follow the installed theme after reinstalls or updates. Preserve active states for default, native, and custom bindings.
 @provides
   [theme] ../Studio Graphite Console.ReaperThemeZip > Studio Graphite Console.ReaperThemeZip
   [script main=main] Studio Graphite Console - Open ReaBrowse.lua

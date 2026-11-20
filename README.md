@@ -11,7 +11,7 @@ Studio Graphite Console is a REAPER 7 theme with configurable transport buttons 
    | Package | Used by |
    | --- | --- |
    | ReaImGui 0.10 or later | Transport Buttons settings |
-   | js_ReaScriptAPI | Both Folder Annex buttons and focusing already open app windows |
+   | js_ReaScriptAPI | Both Folder Annex buttons, focusing app windows, and tracking active app buttons |
    | SWS/S&M Extension | Mixer Folder Annex |
 
 4. Click **Apply**. Restart REAPER if you installed an extension, then select **Options → Themes → Studio Graphite Console**.

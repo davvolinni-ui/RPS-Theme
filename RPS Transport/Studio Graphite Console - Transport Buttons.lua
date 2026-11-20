@@ -60,6 +60,7 @@ local function checkedOverride(text)
 end
 
 local launcher = assert(loadfile(scriptFolder .. "lib/app_launcher.lua"))()
+local bindings = assert(loadfile(scriptFolder .. "lib/theme_bindings.lua"))()
 local function openApp(button)
   local ok, message = launcher.open(r, button, settings)
   if not ok then r.MB(message, title, 0) end
@@ -155,9 +156,8 @@ local function appIsVisible(button)
   return false
 end
 
-local function isActive(button)
-  local binding = r.GetExtState(settings, "binding_" .. button.key)
-  if binding ~= "" then
+local function isActive(button, binding)
+  if binding then
     local command = resolve(binding)
     local description = command > 0 and r.kbd_getTextFromCmd(command, 0) or ""
     if not description:find("Studio Graphite Console - ", 1, true) then
@@ -189,12 +189,24 @@ local function isActive(button)
   return appIsVisible(button)
 end
 
+local buttonKeys = {}
+for i, button in ipairs(buttons) do buttonKeys[i] = button.key end
+local bindingPath, bindingRevision, themeCommands
+local nextBindingCheck = 0
 local function readStates(index)
   if not (usingTheme() and index) then return false end
+  local path = r.GetLastColorThemeFile()
+  local revision = r.GetExtState(settings, "themeBindingRevision")
+  local now = r.time_precise()
+  -- ReaPack can replace the archive at the same path while REAPER is open.
+  if path ~= bindingPath or revision ~= bindingRevision or now >= nextBindingCheck then
+    themeCommands = bindings.readAll(path, buttonKeys)
+    bindingPath, bindingRevision, nextBindingCheck = path, revision, now + 5
+  end
   local _, _, current = r.ThemeLayout_GetParameter(index)
   local mask = 0
   for i, button in ipairs(buttons) do
-    if isActive(button) then mask = mask | (1 << (i - 1)) end
+    if isActive(button, themeCommands[button.key]) then mask = mask | (1 << (i - 1)) end
   end
   if mask == current then return false end
   r.ThemeLayout_SetParameter(index, mask, false)
@@ -209,7 +221,7 @@ local function refreshStates()
   if readStates(stateIndex) then r.ThemeLayout_RefreshAll() end
 end
 
-local monitorVersion = "visible-tabs-5"
+local monitorVersion = "visible-tabs-6"
 local function startStateMonitor()
   -- Only one monitor across Settings and all launchers. Nonpersistent state also
   -- lets a newly started script recover if a previous monitor was terminated.
@@ -273,7 +285,7 @@ local function openSettings()
   package.path = r.ImGui_GetBuiltinPath() .. "/?.lua;" .. package.path
   local I = require("imgui")("0.10")
   local ctx = I.CreateContext(title)
-  local bindings = assert(loadfile(scriptFolder .. "lib/theme_bindings.lua"))()
+  ensureStateMonitor()
   local configurable = {}
   for _, button in ipairs(buttons) do
     if button.key ~= "TcpAnnex" or indices.rpsTransTcpAnnex then configurable[#configurable + 1] = button end
@@ -291,7 +303,9 @@ local function openSettings()
     local command = resolve(drafts[key])
     local description = command > 0 and r.kbd_getTextFromCmd(command, 0) or ""
     descriptions[key] = description
-    if saved == "Default" or saved == "Custom" or (saved == "Native" and button.native) then
+    local savedBinding = r.GetExtState(settings, "binding_" .. key)
+    if command > 0 and drafts[key] == savedBinding and
+        (saved == "Default" or saved == "Custom" or (saved == "Native" and button.native)) then
       choices[key] = saved
     elseif button.native and command == button.native then
       choices[key] = "Native"
@@ -363,6 +377,8 @@ local function openSettings()
       return
     end
     failedReload = nil
+    local revision = tonumber(r.GetExtState(settings, "themeBindingRevision")) or 0
+    r.SetExtState(settings, "themeBindingRevision", tostring(revision + 1), false)
     indices = parameters()
     local refresh = false
     for key, current in pairs(saved) do
