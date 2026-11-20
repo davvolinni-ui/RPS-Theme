@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" name="Studio Graphite Console" commit="6d9d23215f80e94d394ee17eabb3c241dfa13831">
+  <category name="RPS Transport">
+    <reapack name="Studio Graphite Console.theme" type="theme" desc="Studio Graphite Console">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 Select Studio Graphite Console from Options > Themes after installing. Install ReaImGui 0.10 or later for Transport Buttons settings, js_ReaScriptAPI for both Folder Annex buttons, and SWS/S&M Extension for the mixer annex. These packages are available in ReaTeam Extensions. Default app buttons find supported scripts in the current install's Main Action List.\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0" time="2026-11-20T05:15:35Z">
+        <changelog><![CDATA[Initial public release.]]></changelog>
+        <source type="theme" file="Studio Graphite Console.ReaperThemeZip">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/Studio%20Graphite%20Console.ReaperThemeZip</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaBrowse.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaBrowse.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaDrumXT.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaDrumXT.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaRoll.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaRoll.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaSpect.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaSpect.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Toggle Folder Annex.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Toggle%20Folder%20Annex.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Toggle Mixer.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Toggle%20Mixer.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Toggle TCP Folder Annex.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Toggle%20TCP%20Folder%20Annex.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Transport Buttons.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Transport%20Buttons.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Transport States.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Transport%20States.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Mixer Folder Footer.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Mixer%20Folder%20Footer.lua</source>
+        <source type="script" file="lib/app_launcher.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/lib/app_launcher.lua</source>
+        <source type="script" file="lib/theme_bindings.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/lib/theme_bindings.lua</source>
+      </version>
+    </reapack>
+  </category>
+</index>
