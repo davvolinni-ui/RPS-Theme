@@ -21,7 +21,9 @@ Repeat the ReaPack setup inside a portable install to use the package there. **D
 
 ## Fonts
 
-The theme uses Inter and [Roboto Condensed Medium](https://fonts.google.com/specimen/Roboto+Condensed). REAPER supplies Inter Regular and Medium. Media-item labels use Inter Regular. The transport clock and playback status use Inter SemiBold where installed. REAPER uses a fallback when that face is unavailable.
+Install [Roboto Condensed Regular and Medium](https://fonts.google.com/specimen/Roboto+Condensed). Regular is used for media item labels, FX inserts, and sends. Medium is used for track labels and other controls. Recent REAPER versions supply Inter Regular and Medium. The transport clock and playback status use Inter SemiBold where installed.
+
+The typography was checked on Windows with REAPER 7.84. The send tint adjustment uses the control introduced in [REAPER 7.78](https://www.reaper.fm/download-old.php?ver=7x).
 
 ## Credits
 
