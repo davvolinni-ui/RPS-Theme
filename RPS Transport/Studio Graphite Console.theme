@@ -1,6 +1,6 @@
 @description Studio Graphite Console
-@version 1.0
-@changelog Initial public release.
+@version 1.0.1
+@changelog Fix the default TCP Folder Annex action binding for ReaPack installs.
 @provides
   [theme] ../Studio Graphite Console.ReaperThemeZip > Studio Graphite Console.ReaperThemeZip
   [script main=main] Studio Graphite Console - Open ReaBrowse.lua
