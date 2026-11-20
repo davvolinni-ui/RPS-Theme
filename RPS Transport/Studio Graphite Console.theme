@@ -1,0 +1,23 @@
+@description Studio Graphite Console
+@version 1.0
+@changelog Initial public release.
+@provides
+  [theme] ../Studio Graphite Console.ReaperThemeZip > Studio Graphite Console.ReaperThemeZip
+  [script main=main] Studio Graphite Console - Open ReaBrowse.lua
+  [script main=main] Studio Graphite Console - Open ReaDrumXT.lua
+  [script main=main] Studio Graphite Console - Open ReaRoll.lua
+  [script main=main] Studio Graphite Console - Open ReaSpect.lua
+  [script main=main] Studio Graphite Console - Toggle Folder Annex.lua
+  [script main=main] Studio Graphite Console - Toggle Mixer.lua
+  [script main=main] Studio Graphite Console - Toggle TCP Folder Annex.lua
+  [script main=main] Studio Graphite Console - Transport Buttons.lua
+  [script main=main] Studio Graphite Console - Transport States.lua
+  [script main=main] Studio Graphite Console - Mixer Folder Footer.lua
+  [script nomain] lib/app_launcher.lua
+  [script nomain] lib/theme_bindings.lua
+@about
+  Select Studio Graphite Console from Options > Themes after installing.
+  Install ReaImGui 0.10 or later for Transport Buttons settings, js_ReaScriptAPI
+  for both Folder Annex buttons, and SWS/S&M Extension for the mixer annex.
+  These packages are available in ReaTeam Extensions.
+  Default app buttons find supported scripts in the current install's Main Action List.

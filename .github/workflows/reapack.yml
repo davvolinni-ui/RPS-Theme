@@ -1,0 +1,38 @@
+name: Publish ReaPack index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RPS Transport/**'
+      - 'Studio Graphite Console.ReaperThemeZip'
+      - '.github/workflows/reapack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reapack-index
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install the ReaPack indexer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+          gem install reapack-index --version 1.2.6 --no-document
+      - name: Generate and publish index.xml
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          reapack-index --name 'Studio Graphite Console' --commit
+          git push
