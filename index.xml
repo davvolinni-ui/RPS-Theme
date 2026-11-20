@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Studio Graphite Console" commit="6d9d23215f80e94d394ee17eabb3c241dfa13831">
+<index version="1" name="Studio Graphite Console" commit="35d65e55299322f904da63c0d1a43f19c533a81d">
   <category name="RPS Transport">
     <reapack name="Studio Graphite Console.theme" type="theme" desc="Studio Graphite Console">
       <metadata>
@@ -26,6 +26,22 @@
         <source main="main" type="script" file="Studio Graphite Console - Mixer Folder Footer.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/Studio%20Graphite%20Console%20-%20Mixer%20Folder%20Footer.lua</source>
         <source type="script" file="lib/app_launcher.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/lib/app_launcher.lua</source>
         <source type="script" file="lib/theme_bindings.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/6d9d23215f80e94d394ee17eabb3c241dfa13831/RPS%20Transport/lib/theme_bindings.lua</source>
+      </version>
+      <version name="1.0.1" time="2026-11-20T05:34:39Z">
+        <changelog><![CDATA[Fix the default TCP Folder Annex action binding for ReaPack installs.]]></changelog>
+        <source type="theme" file="Studio Graphite Console.ReaperThemeZip">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/Studio%20Graphite%20Console.ReaperThemeZip</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaBrowse.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaBrowse.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaDrumXT.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaDrumXT.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaRoll.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaRoll.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Open ReaSpect.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Open%20ReaSpect.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Toggle Folder Annex.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Toggle%20Folder%20Annex.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Toggle Mixer.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Toggle%20Mixer.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Toggle TCP Folder Annex.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Toggle%20TCP%20Folder%20Annex.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Transport Buttons.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Transport%20Buttons.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Transport States.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Transport%20States.lua</source>
+        <source main="main" type="script" file="Studio Graphite Console - Mixer Folder Footer.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/Studio%20Graphite%20Console%20-%20Mixer%20Folder%20Footer.lua</source>
+        <source type="script" file="lib/app_launcher.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/lib/app_launcher.lua</source>
+        <source type="script" file="lib/theme_bindings.lua">https://github.com/davvolinni-ui/RPS-Theme/raw/35d65e55299322f904da63c0d1a43f19c533a81d/RPS%20Transport/lib/theme_bindings.lua</source>
       </version>
     </reapack>
   </category>
