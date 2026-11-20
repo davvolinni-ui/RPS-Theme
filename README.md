@@ -11,13 +11,15 @@ Studio Graphite Console is a REAPER 7 theme with configurable transport buttons 
    | Package | Used by |
    | --- | --- |
    | ReaImGui 0.10 or later | Transport Buttons settings |
-   | js_ReaScriptAPI | Both Folder Annex buttons, focusing app windows, and tracking active app buttons |
+   | js_ReaScriptAPI | Both Folder Annex buttons and focusing app windows |
    | SWS/S&M Extension | Mixer Folder Annex |
 
 4. Click **Apply**. Restart REAPER if you installed an extension, then select **Options → Themes → Studio Graphite Console**.
 5. Open the transport's **Settings** button to choose which buttons to show and how they launch. You can also open **Studio Graphite Console - Transport Buttons** from the Main Action List.
 
 Repeat the ReaPack setup inside a portable install to use the package there. **Default** discovers ReaBrowse, ReaDrumXT, ReaSpect, and ReaRoll if you separately install them in that REAPER instance and register them in its Main Action List. **Native** is available for the browser and piano roll. Use **Custom** for another action in the Main Action List.
+
+The RPS transport icons use fixed artwork. The Folder Annex keeps its overlay aligned while enabled.
 
 ## Fonts
 

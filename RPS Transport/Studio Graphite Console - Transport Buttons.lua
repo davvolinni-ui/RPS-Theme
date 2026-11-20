@@ -60,7 +60,6 @@ local function checkedOverride(text)
 end
 
 local launcher = assert(loadfile(scriptFolder .. "lib/app_launcher.lua"))()
-local bindings = assert(loadfile(scriptFolder .. "lib/theme_bindings.lua"))()
 local function openApp(button)
   local ok, message = launcher.open(r, button, settings)
   if not ok then r.MB(message, title, 0) end
@@ -125,152 +124,6 @@ local function runButton(button)
   end
 end
 
-local cachedAnnexCommands, nextAnnexLookup = {}, {}
-local function annexCommand(button)
-  local now = r.time_precise()
-  local key = button.key
-  if now >= (nextAnnexLookup[key] or 0) then
-    cachedAnnexCommands[key] = footerCommand(button.filename)
-    nextAnnexLookup[key] = now + 5
-  end
-  return cachedAnnexCommands[key]
-end
-
-local appWindows = {}
-local function appIsVisible(button)
-  -- Keep checking the visibility of a dock tab, but avoid rediscovering its window on every tick.
-  if not r.JS_Window_IsWindow then return launcher.window(r, button, true) ~= nil end
-  local now = r.time_precise()
-  local entry = appWindows[button.key] or {}
-  appWindows[button.key] = entry
-  if entry.window and not r.JS_Window_IsWindow(entry.window) then
-    entry.window, entry.nextSearch = nil, nil
-  end
-  if entry.window and launcher.visible(r, entry.window) then return true end
-  if now >= (entry.nextSearch or 0) then
-    local visible = launcher.window(r, button, true)
-    if visible then entry.window = visible end
-    entry.nextSearch = now + 2
-    return visible ~= nil
-  end
-  return false
-end
-
-local function isActive(button, binding)
-  if binding then
-    local command = resolve(binding)
-    local description = command > 0 and r.kbd_getTextFromCmd(command, 0) or ""
-    if not description:find("Studio Graphite Console - ", 1, true) then
-      -- A direct Custom binding to one of the apps still follows its visible tab.
-      if button.app and description:lower():find(button.file:lower(), 1, true) then
-        return appIsVisible(button)
-      end
-      -- Opening a MIDI editor is not a toggle action; query the editor itself.
-      if command == 40153 and r.MIDIEditor_GetActive then return launcher.visible(r, r.MIDIEditor_GetActive()) end
-      return command > 0 and r.GetToggleCommandStateEx(0, command) == 1
-    end
-  end
-  local remapped = override(button)
-  if remapped ~= "" or not button.app then
-    local command = remapped ~= "" and resolve(remapped) or button.command or annexCommand(button)
-    if button.key == "Annex" and remapped == "" then
-      local state = command > 0 and r.GetToggleCommandStateEx(0, command) or -1
-      if state >= 0 then return state == 1 end
-      -- Older running footer instances did not publish a toggle state.
-      local index = parameters().mcpFolderFooter
-      if index then
-        local _, _, height = r.ThemeLayout_GetParameter(index)
-        return (height or 0) > 0
-      end
-      return false
-    end
-    return command > 0 and r.GetToggleCommandStateEx(0, command) == 1
-  end
-  return appIsVisible(button)
-end
-
-local buttonKeys = {}
-for i, button in ipairs(buttons) do buttonKeys[i] = button.key end
-local bindingPath, bindingRevision, themeCommands
-local nextBindingCheck = 0
-local function readStates(index)
-  if not (usingTheme() and index) then return false end
-  local path = r.GetLastColorThemeFile()
-  local revision = r.GetExtState(settings, "themeBindingRevision")
-  local now = r.time_precise()
-  -- ReaPack can replace the archive at the same path while REAPER is open.
-  if path ~= bindingPath or revision ~= bindingRevision or now >= nextBindingCheck then
-    themeCommands = bindings.readAll(path, buttonKeys)
-    bindingPath, bindingRevision, nextBindingCheck = path, revision, now + 5
-  end
-  local _, _, current = r.ThemeLayout_GetParameter(index)
-  local mask = 0
-  for i, button in ipairs(buttons) do
-    if isActive(button, themeCommands[button.key]) then mask = mask | (1 << (i - 1)) end
-  end
-  if mask == current then return false end
-  r.ThemeLayout_SetParameter(index, mask, false)
-  return true
-end
-
-local stateIndex
-local function refreshStates()
-  if stateIndex == nil or r.ThemeLayout_GetParameter(stateIndex) ~= "rpsTransActiveMask" then
-    stateIndex = parameters().rpsTransActiveMask
-  end
-  if readStates(stateIndex) then r.ThemeLayout_RefreshAll() end
-end
-
-local monitorVersion = "visible-tabs-6"
-local function startStateMonitor()
-  -- Only one monitor across Settings and all launchers. Nonpersistent state also
-  -- lets a newly started script recover if a previous monitor was terminated.
-  local now = r.time_precise()
-  local previous = tonumber(r.GetExtState(settings, "stateMonitorHeartbeat"))
-  if previous and now >= previous and now - previous < 2 then return end
-  local owner = tostring(now) .. tostring({})
-  r.SetExtState(settings, "stateMonitorOwner", owner, false)
-  r.SetExtState(settings, "stateMonitorVersion", monitorVersion, false)
-  r.SetExtState(settings, "stateMonitorHeartbeat", tostring(now), false)
-  refreshStates()
-  local nextUpdate = now + 0.25
-  local function tick()
-    if r.GetExtState(settings, "stateMonitorOwner") ~= owner then return end
-    if not usingTheme() then
-      r.DeleteExtState(settings, "stateMonitorHeartbeat", false)
-      r.DeleteExtState(settings, "stateMonitorOwner", false)
-      return
-    end
-    local time = r.time_precise()
-    if time >= nextUpdate then
-      r.SetExtState(settings, "stateMonitorHeartbeat", tostring(time), false)
-      refreshStates()
-      nextUpdate = time + 0.25
-    end
-    r.defer(tick)
-  end
-  r.defer(tick)
-end
-
-local function ensureStateMonitor()
-  local heartbeat = tonumber(r.GetExtState(settings, "stateMonitorHeartbeat"))
-  local now = r.time_precise()
-  if heartbeat and now >= heartbeat and now - heartbeat < 2
-      and r.GetExtState(settings, "stateMonitorVersion") == monitorVersion then return end
-  -- Retire a worker loaded before this update before invoking its action again.
-  local retiring = heartbeat and now >= heartbeat and now - heartbeat < 2
-  if retiring then
-    r.DeleteExtState(settings, "stateMonitorOwner", false)
-    r.DeleteExtState(settings, "stateMonitorHeartbeat", false)
-  end
-  -- The worker owns its defer loop, so closing/reopening Settings cannot kill it.
-  local command = r.AddRemoveReaScript(true, 0, scriptFolder .. "Studio Graphite Console - Transport States.lua", true)
-  if command and command > 0 then
-    if retiring then r.defer(function() r.defer(function() r.Main_OnCommand(command, 0) end) end)
-    else r.Main_OnCommand(command, 0) end
-  end
-end
-
 local function openSettings()
   if not r.ImGui_GetBuiltinPath then
     r.MB("The transport settings require ReaImGui.", title, 0)
@@ -285,7 +138,7 @@ local function openSettings()
   package.path = r.ImGui_GetBuiltinPath() .. "/?.lua;" .. package.path
   local I = require("imgui")("0.10")
   local ctx = I.CreateContext(title)
-  ensureStateMonitor()
+  local bindings = assert(loadfile(scriptFolder .. "lib/theme_bindings.lua"))()
   local configurable = {}
   for _, button in ipairs(buttons) do
     if button.key ~= "TcpAnnex" or indices.rpsTransTcpAnnex then configurable[#configurable + 1] = button end
@@ -377,22 +230,18 @@ local function openSettings()
       return
     end
     failedReload = nil
-    local revision = tonumber(r.GetExtState(settings, "themeBindingRevision")) or 0
-    r.SetExtState(settings, "themeBindingRevision", tostring(revision + 1), false)
     indices = parameters()
     local refresh = false
     for key, current in pairs(saved) do
       local index = indices[key]
-      if index and key ~= "rpsTransActiveMask" and value(key) ~= current then
+      if index and value(key) ~= current then
         -- This restores live overrides without turning them into theme defaults.
         r.ThemeLayout_SetParameter(index, current, false)
         refresh = true
       end
     end
-    if readStates(indices.rpsTransActiveMask) then refresh = true end
     if refresh then r.ThemeLayout_RefreshAll() end
     notes[request.key] = "Applied: " .. request.description
-    ensureStateMonitor()
   end
 
   local function frame()
@@ -486,14 +335,13 @@ local function openSettings()
   r.defer(frame)
 end
 
-if mode == "refreshStates" then
-  startStateMonitor()
-elseif type(mode) == "string" then
+-- Retire a highlight worker still running from an older version.
+r.DeleteExtState(settings, "stateMonitorOwner", false)
+
+if type(mode) == "string" then
   for _, button in ipairs(buttons) do
     if button.label == mode then
       runButton(button)
-      ensureStateMonitor()
-      r.defer(refreshStates)
       break
     end
   end

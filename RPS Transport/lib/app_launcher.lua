@@ -38,18 +38,7 @@ function M.discover(r, app)
   if ambiguous then return nil, 'Multiple copies found. Use Custom to choose an action.' end
   return best
 end
-function M.visible(r, window)
-  if not window or not r.JS_Window_IsVisible then return false end
-  local seen = {}
-  while window and not seen[window] do
-    seen[window] = true
-    if not r.JS_Window_IsVisible(window) then return false end
-    if not r.JS_Window_GetParent then return true end
-    window = r.JS_Window_GetParent(window)
-  end
-  return true
-end
-function M.window(r, app, visibleOnly)
+function M.window(r, app)
   if not r.JS_Window_Find then return nil end
   local function matches(title)
     return title == app.label or title == app.label .. ' EULA' or
@@ -57,13 +46,13 @@ function M.window(r, app, visibleOnly)
   end
   for _, title in ipairs({app.label, app.label .. ' EULA'}) do
     local window = r.JS_Window_Find(title, true)
-    if window and (not visibleOnly or M.visible(r, window)) then return window end
+    if window then return window end
   end
   if r.JS_Window_ListFind and r.JS_Window_HandleFromAddress and r.JS_Window_GetTitle then
     local _, addresses = r.JS_Window_ListFind(app.label, false)
     for address in (addresses or ''):gmatch('[^,]+') do
       local handle = r.JS_Window_HandleFromAddress(address)
-      if handle and matches(r.JS_Window_GetTitle(handle)) and (not visibleOnly or M.visible(r, handle)) then return handle end
+      if handle and matches(r.JS_Window_GetTitle(handle)) then return handle end
     end
   end
 end

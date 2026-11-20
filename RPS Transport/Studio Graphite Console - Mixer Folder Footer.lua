@@ -512,28 +512,13 @@ elseif not getParameter() then
   return
 end
 
+if tcp then r.DeleteExtState("StudioGraphiteConsole.Transport", "stateMonitorOwner", false) end
 if r.set_action_options then r.set_action_options(1 | 4) end
 local _, _, actionSection, actionCommand = r.get_action_context()
 local function publishToggle(state)
   if actionCommand and actionCommand > 0 then
     r.SetToggleCommandState(actionSection, actionCommand, state)
     r.RefreshToolbar2(actionSection, actionCommand)
-  end
-  if tcp and activeTheme() then
-    local index = 0
-    while true do
-      local name, _, mask = r.ThemeLayout_GetParameter(index)
-      if not name or name == "" then break end
-      if name == "rpsTransActiveMask" then
-        local updated = state == 1 and mask | 64 or mask & ~64
-        if updated ~= mask then
-          r.ThemeLayout_SetParameter(index, updated, false)
-          r.ThemeLayout_RefreshAll()
-        end
-        break
-      end
-      index = index + 1
-    end
   end
 end
 publishToggle(1)

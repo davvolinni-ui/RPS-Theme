@@ -104,7 +104,9 @@ function M.apply(path, key, command)
     local target, original, config, rebuild = source(path)
     local count, updated
     updated, count = config:gsub(commandPattern(key), function(prefix) return prefix .. command end)
-    assert(count == (key == "Settings" and 2 or 4), "The theme does not contain all variants of this button.")
+    local hasHighlights = config:find("define_parameter%s+rpsTransActiveMask%s")
+    local expected = (key == "Settings" or not hasHighlights) and 2 or 4
+    assert(count == expected, "The theme does not contain all variants of this button.")
     if updated == config then return target, false end
     local replacement = rebuild(updated)
     if target:lower():match("%.reaperthemezip$") then
