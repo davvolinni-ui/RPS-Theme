@@ -65,6 +65,18 @@ local function openApp(button)
   if not ok then r.MB(message, title, 0) end
 end
 
+local function openMixer(button)
+  local window = usingTheme() and r.BR_Win32_GetMixerHwnd and r.BR_Win32_GetMixerHwnd()
+  if window and r.DockIsChildOfDock and r.DockWindowActivate then
+    local dock = r.DockIsChildOfDock(window)
+    if dock and dock >= 0 then
+      r.DockWindowActivate(window)
+      return
+    end
+  end
+  r.Main_OnCommand(button.command, 0)
+end
+
 local function footerCommand(filename)
   filename = filename or footerFilename
   local resource = r.GetResourcePath()
@@ -114,6 +126,8 @@ local function runButton(button)
     if command then r.Main_OnCommand(command, 0) else r.MB(message, title, 0) end
   elseif button.app then
     openApp(button)
+  elseif button.key == "Mixer" then
+    openMixer(button)
   else
     local command = defaultCommand(button)
     if command > 0 then
@@ -139,6 +153,7 @@ local function openSettings()
   local I = require("imgui")("0.10")
   local ctx = I.CreateContext(title)
   local bindings = assert(loadfile(scriptFolder .. "lib/theme_bindings.lua"))()
+  local appearance = assert(loadfile(scriptFolder .. "lib/theme_appearance.lua"))()
   local configurable = {}
   for _, button in ipairs(buttons) do
     if button.key ~= "TcpAnnex" or indices.rpsTransTcpAnnex then configurable[#configurable + 1] = button end
@@ -174,10 +189,9 @@ local function openSettings()
   end
 
   local function defaultBinding(button)
-    if button.key == "Mixer" then return "40078" end
     local names = {Browse = "Open ReaBrowse", Drum = "Open ReaDrumXT", Spect = "Open ReaSpect",
       Roll = "Open ReaRoll", Annex = "Toggle Folder Annex", TcpAnnex = "Toggle TCP Folder Annex",
-      Settings = "Transport Buttons"}
+      Mixer = "Toggle Mixer", Settings = "Transport Buttons"}
     local path = scriptFolder .. "Studio Graphite Console - " .. names[button.key] .. ".lua"
     local command = r.AddRemoveReaScript(true, 0, path, true)
     if not command or command == 0 then return nil, "Could not register " .. path end
@@ -186,6 +200,10 @@ local function openSettings()
     return named:sub(1, 1) == "_" and named or "_" .. named
   end
   local pendingReload, failedReload
+  local function queueReload(path, notify)
+    pendingReload = {path = path, notify = notify}
+  end
+
   local function apply(button, text, choice)
     local normalized = text:match("^%s*(.-)%s*$")
     local command, message = checkedOverride(normalized)
@@ -202,10 +220,12 @@ local function openSettings()
     r.SetExtState(settings, "binding_" .. button.key, normalized, true)
     local description = r.kbd_getTextFromCmd(command, 0)
     drafts[button.key], descriptions[button.key] = normalized, description
-    local reloadPath = path:lower():match("%.reaperthemezip$") and path or activePath
-    if changed or failedReload == reloadPath then
+    if changed or failedReload == path then
       notes[button.key] = "Saved: " .. description
-      pendingReload = {path = reloadPath, key = button.key, description = description}
+      queueReload(path, function(success)
+        notes[button.key] = success and ("Applied: " .. description) or
+          "Saved, but REAPER could not reload the theme. Apply again to retry."
+      end)
     else
       notes[button.key] = "Already assigned: " .. description
     end
@@ -216,7 +236,7 @@ local function openSettings()
     return current
   end
 
-  local function reloadBinding()
+  local function reloadTheme()
     local request = pendingReload
     pendingReload = nil
     local saved = {}
@@ -226,7 +246,7 @@ local function openSettings()
     end
     if r.OpenColorThemeFile(request.path) == false then
       failedReload = request.path
-      notes[request.key] = "Saved, but REAPER could not reload the theme. Apply again to retry."
+      request.notify(false)
       return
     end
     failedReload = nil
@@ -241,96 +261,171 @@ local function openSettings()
       end
     end
     if refresh then r.ThemeLayout_RefreshAll() end
-    notes[request.key] = "Applied: " .. request.description
+    request.notify(true)
+  end
+
+  local appearanceLoaded, appearanceError, appearanceNote
+  local grid, meter, interlaced
+  local savedGrid, savedMeter, savedInterlaced
+  local function drawAppearance()
+    if not appearanceLoaded then
+      appearanceLoaded = true
+      local ok, brightness, color, useInterlacing = appearance.read(r.GetLastColorThemeFile())
+      if ok then
+        grid, meter, savedGrid, savedMeter = brightness, color, brightness, color
+        interlaced, savedInterlaced = useInterlacing, useInterlacing
+      else
+        appearanceError = brightness
+      end
+    end
+    if appearanceError then
+      I.TextWrapped(ctx, appearanceError)
+      return
+    end
+
+    I.SetNextItemWidth(ctx, 175)
+    local _, brightness = I.SliderInt(ctx, "Arrange grid brightness", grid,
+      appearance.minGrid, appearance.maxGrid, "%d%%", I.SliderFlags_AlwaysClamp)
+    if I.IsItemClicked(ctx, I.MouseButton_Right) then brightness = appearance.defaultGrid end
+    I.SetItemTooltip(ctx, "Right-click to reset grid brightness.")
+
+    I.SetNextItemWidth(ctx, 175)
+    local _, color = I.ColorEdit3(ctx, "Base meter color", meter, I.ColorEditFlags_DisplayHex | I.ColorEditFlags_NoOptions)
+    if I.IsItemClicked(ctx, I.MouseButton_Right) then color = appearance.defaultMeter end
+    I.SetItemTooltip(ctx, "Right-click to reset the base meter color.")
+
+    local _, useInterlacing = I.Checkbox(ctx, "Interlaced meters", interlaced)
+    if brightness ~= grid or color ~= meter or useInterlacing ~= interlaced then
+      grid, meter, interlaced, appearanceNote = brightness, color, useInterlacing, nil
+    end
+    I.TextWrapped(ctx, "Amber and clip colors are fixed. Apply saves your changes and refreshes the theme.")
+
+    I.BeginDisabled(ctx, grid == savedGrid and meter == savedMeter and interlaced == savedInterlaced and not failedReload)
+    if I.Button(ctx, "Apply") then
+      local path, changed = appearance.apply(r.GetLastColorThemeFile(), grid, meter, interlaced)
+      if not path then
+        appearanceNote = changed
+      else
+        savedGrid, savedMeter, savedInterlaced = grid, meter, interlaced
+        appearanceNote = "Appearance saved."
+        if changed or failedReload == path then
+          queueReload(path, function(success)
+            appearanceNote = success and "Appearance applied." or
+              "Saved, but REAPER could not reload the theme. Apply again to retry."
+          end)
+        end
+      end
+    end
+    I.EndDisabled(ctx)
+    I.SameLine(ctx)
+    if I.Button(ctx, "Restore defaults") then
+      grid, meter, interlaced = appearance.defaultGrid, appearance.defaultMeter, appearance.defaultInterlaced
+      appearanceNote = nil
+    end
+    if appearanceNote then I.TextWrapped(ctx, appearanceNote) end
+  end
+
+  local function drawTransport()
+    local changedAny = false
+    local function save(key, nextValue)
+      r.ThemeLayout_SetParameter(indices[key], nextValue, true)
+      changedAny = true
+    end
+    I.SetNextItemWidth(ctx, 140)
+    local changed, placement = I.Combo(ctx, "Placement", value("rpsTransPlacement"), "Auto\0Left\0Right\0")
+    if changed then save("rpsTransPlacement", placement) end
+    local tipsChanged, tips = I.Checkbox(ctx, "Show transport button tooltips", value("rpsTransTooltips") == 1)
+    if tipsChanged then save("rpsTransTooltips", tips and 1 or 0) end
+
+    I.Separator(ctx)
+    I.Text(ctx, "Show on transport")
+    for _, button in ipairs(buttons) do
+      local key = "rpsTrans" .. button.key
+      if indices[key] then
+        local changedButton, shown = I.Checkbox(ctx, button.label, value(key) == 1)
+        if changedButton then save(key, shown and 1 or 0) end
+      end
+    end
+
+    if I.CollapsingHeader(ctx, "Button actions") then
+      I.TextWrapped(ctx, "Default uses the bundled launcher for your installed app. Native uses REAPER. Custom accepts a Main Action List command ID. Apply saves your choice into the theme; Reset applies Default.")
+      for _, button in ipairs(configurable) do
+        local key = button.key
+        I.PushID(ctx, key)
+        I.Text(ctx, button.label)
+        local options = button.native and {"Default", "Native", "Custom"} or {"Default", "Custom"}
+        local selected = 0
+        for i, option in ipairs(options) do if option == choices[key] then selected = i - 1 end end
+        I.SetNextItemWidth(ctx, 205)
+        local changedChoice, nextChoice = I.Combo(ctx, "##ActionType", selected, table.concat(options, "\0") .. "\0")
+        if changedChoice then choices[key], notes[key] = options[nextChoice + 1], nil end
+        if choices[key] == "Custom" then
+          I.SetNextItemWidth(ctx, 205)
+          local edited, text = I.InputText(ctx, "Command ID", drafts[key])
+          if edited and text ~= drafts[key] then
+            local command = resolve(text:match("^%s*(.-)%s*$"))
+            drafts[key], notes[key] = text, nil
+            descriptions[key] = command > 0 and r.kbd_getTextFromCmd(command, 0) or ""
+          end
+        elseif choices[key] == "Native" then
+          I.TextWrapped(ctx, button.nativeLabel)
+        elseif button.app then
+          I.TextWrapped(ctx, detected[key])
+        end
+        if I.Button(ctx, "Apply") then
+          local command, message
+          if choices[key] == "Custom" then command = drafts[key]
+          elseif choices[key] == "Native" then command = tostring(button.native)
+          else command, message = defaultBinding(button) end
+          if command then apply(button, command, choices[key]) else notes[key] = message end
+        end
+        I.SameLine(ctx)
+        if I.Button(ctx, "Reset") then
+          if button.app then
+            local found, problem = launcher.discover(r, button)
+            detected[key] = found and ("Found: " .. found.path) or problem or (button.label .. " not found in the Main Action List.")
+          end
+          local command, message = defaultBinding(button)
+          if command then apply(button, command, "Default") else notes[key] = message end
+        end
+        if notes[key] then
+          I.TextWrapped(ctx, notes[key])
+        elseif descriptions[key] == "" then
+          I.TextWrapped(ctx, "Not mapped—click Reset or assign an action.")
+        else
+          I.TextWrapped(ctx, "Action: " .. descriptions[key])
+        end
+        I.PopID(ctx)
+      end
+    end
+    if changedAny then r.ThemeLayout_RefreshAll() end
   end
 
   local function frame()
     if not usingTheme() then return end
     if pendingReload then
-      reloadBinding()
+      reloadTheme()
       r.defer(frame)
       return
     end
     I.SetNextWindowSize(ctx, 420, 440, I.Cond_FirstUseEver)
     local visible, open = I.Begin(ctx, title, true)
     if visible then
-      local changedAny = false
-      local function save(key, nextValue)
-        r.ThemeLayout_SetParameter(indices[key], nextValue, true)
-        changedAny = true
-      end
-      I.SetNextItemWidth(ctx, 140)
-      local changed, placement = I.Combo(ctx, "Placement", value("rpsTransPlacement"), "Auto\0Left\0Right\0")
-      if changed then save("rpsTransPlacement", placement) end
-      local tipsChanged, tips = I.Checkbox(ctx, "Show transport button tooltips", value("rpsTransTooltips") == 1)
-      if tipsChanged then save("rpsTransTooltips", tips and 1 or 0) end
-
-      I.Separator(ctx)
-      I.Text(ctx, "Show on transport")
-      for _, button in ipairs(buttons) do
-        local key = "rpsTrans" .. button.key
-        if indices[key] then
-          local changedButton, shown = I.Checkbox(ctx, button.label, value(key) == 1)
-          if changedButton then save(key, shown and 1 or 0) end
+      if I.BeginTabBar(ctx, "Settings tabs") then
+        if I.BeginTabItem(ctx, "Transport") then
+          drawTransport()
+          I.EndTabItem(ctx)
         end
-      end
-
-      if I.CollapsingHeader(ctx, "Button actions") then
-        I.TextWrapped(ctx, "Default uses the bundled launcher for your installed app. Native uses REAPER. Custom accepts a Main Action List command ID. Apply saves your choice into the theme; Reset applies Default.")
-        for _, button in ipairs(configurable) do
-          local key = button.key
-          I.PushID(ctx, key)
-          I.Text(ctx, button.label)
-          local options = button.native and {"Default", "Native", "Custom"} or {"Default", "Custom"}
-          local selected = 0
-          for i, option in ipairs(options) do if option == choices[key] then selected = i - 1 end end
-          I.SetNextItemWidth(ctx, 205)
-          local changedChoice, nextChoice = I.Combo(ctx, "##ActionType", selected, table.concat(options, "\0") .. "\0")
-          if changedChoice then choices[key], notes[key] = options[nextChoice + 1], nil end
-          if choices[key] == "Custom" then
-            I.SetNextItemWidth(ctx, 205)
-            local edited, text = I.InputText(ctx, "Command ID", drafts[key])
-            if edited and text ~= drafts[key] then
-              local command = resolve(text:match("^%s*(.-)%s*$"))
-              drafts[key], notes[key] = text, nil
-              descriptions[key] = command > 0 and r.kbd_getTextFromCmd(command, 0) or ""
-            end
-          elseif choices[key] == "Native" then
-            I.TextWrapped(ctx, button.nativeLabel)
-          elseif button.app then
-            I.TextWrapped(ctx, detected[key])
-          end
-          if I.Button(ctx, "Apply") then
-            local command, message
-            if choices[key] == "Custom" then command = drafts[key]
-            elseif choices[key] == "Native" then command = tostring(button.native)
-            else command, message = defaultBinding(button) end
-            if command then apply(button, command, choices[key]) else notes[key] = message end
-          end
-          I.SameLine(ctx)
-          if I.Button(ctx, "Reset") then
-            if button.app then
-              local found, problem = launcher.discover(r, button)
-              detected[key] = found and ("Found: " .. found.path) or problem or (button.label .. " not found in the Main Action List.")
-            end
-            local command, message = defaultBinding(button)
-            if command then apply(button, command, "Default") else notes[key] = message end
-          end
-          if notes[key] then
-            I.TextWrapped(ctx, notes[key])
-          elseif descriptions[key] == "" then
-            I.TextWrapped(ctx, "Not mapped—click Reset or assign an action.")
-          else
-            I.TextWrapped(ctx, "Action: " .. descriptions[key])
-          end
-          I.PopID(ctx)
+        if I.BeginTabItem(ctx, "Appearance") then
+          drawAppearance()
+          I.EndTabItem(ctx)
         end
+        I.EndTabBar(ctx)
       end
       I.End(ctx)
-      if changedAny then r.ThemeLayout_RefreshAll() end
     end
     if open then r.defer(frame)
-    elseif pendingReload then r.defer(function() if usingTheme() then reloadBinding() end end) end
+    elseif pendingReload then r.defer(function() if usingTheme() then reloadTheme() end end) end
   end
   r.defer(frame)
 end

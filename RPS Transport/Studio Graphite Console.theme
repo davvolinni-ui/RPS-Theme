@@ -1,6 +1,9 @@
 @description Studio Graphite Console
-@version 1.0.4
-@changelog Use static transport icons and remove the background highlight monitor and recurring theme archive reads.
+@version 1.0.5
+@changelog
+  Add appearance controls for arrange gridline brightness, base meter color, and meter interlacing.
+  Refine the track and mixer FX button states and deepen the shading on colored mixer strips.
+  Bring the docked Mixer forward from its static transport button.
 @provides
   [theme] ../Studio Graphite Console.ReaperThemeZip > Studio Graphite Console.ReaperThemeZip
   [script main=main] Studio Graphite Console - Open ReaBrowse.lua
@@ -14,9 +17,11 @@
   [script main=main] Studio Graphite Console - Mixer Folder Footer.lua
   [script nomain] lib/app_launcher.lua
   [script nomain] lib/theme_bindings.lua
+  [script nomain] lib/theme_appearance.lua
+  [script nomain] lib/theme_files.lua
 @about
   Select Studio Graphite Console from Options > Themes after installing.
   Install ReaImGui 0.10 or later for Transport Buttons settings, js_ReaScriptAPI
-  for both Folder Annex buttons, and SWS/S&M Extension for the mixer annex.
+  for both Folder Annex buttons and app focus, and SWS/S&M Extension for Mixer docking and the mixer annex.
   These packages are available in ReaTeam Extensions.
   Default app buttons find supported scripts in the current install's Main Action List.
