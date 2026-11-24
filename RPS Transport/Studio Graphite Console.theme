@@ -1,10 +1,7 @@
 @description Studio Graphite Console
-@version 1.1.0
+@version 1.1.1
 @changelog
-  Refresh the graphite-and-teal transport buttons and play-rate dial at 100%, 150%, and 200%.
-  Add the iQ input quantize button, optional FTC docker buttons, and Gridbox alignment with iQ.
-  Add more transport placement options and simplify action mapping with Apply All.
-  Remember the mixer and TCP Folder Annex states with the optional startup setup.
+  Include FeedTheCat's upstream MIT license notice for the Gridbox scaling code.
 @provides
   [theme] ../Studio Graphite Console.ReaperThemeZip > Studio Graphite Console.ReaperThemeZip
   [script main=main] Studio Graphite Console - Open ReaBrowse.lua
