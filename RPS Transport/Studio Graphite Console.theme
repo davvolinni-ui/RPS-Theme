@@ -1,9 +1,10 @@
 @description Studio Graphite Console
-@version 1.0.5
+@version 1.1.0
 @changelog
-  Add appearance controls for arrange gridline brightness, base meter color, and meter interlacing.
-  Refine the track and mixer FX button states and deepen the shading on colored mixer strips.
-  Bring the docked Mixer forward from its static transport button.
+  Refresh the graphite-and-teal transport buttons and play-rate dial at 100%, 150%, and 200%.
+  Add the iQ input quantize button, optional FTC docker buttons, and Gridbox alignment with iQ.
+  Add more transport placement options and simplify action mapping with Apply All.
+  Remember the mixer and TCP Folder Annex states with the optional startup setup.
 @provides
   [theme] ../Studio Graphite Console.ReaperThemeZip > Studio Graphite Console.ReaperThemeZip
   [script main=main] Studio Graphite Console - Open ReaBrowse.lua
@@ -14,14 +15,18 @@
   [script main=main] Studio Graphite Console - Toggle Mixer.lua
   [script main=main] Studio Graphite Console - Toggle TCP Folder Annex.lua
   [script main=main] Studio Graphite Console - Transport Buttons.lua
+  [script main=main] Studio Graphite Console - Input Quantize.lua
   [script main=main] Studio Graphite Console - Mixer Folder Footer.lua
+  [script nomain] Studio Graphite Console - TCP Folder Annex Renderer.lua
   [script nomain] lib/app_launcher.lua
   [script nomain] lib/theme_bindings.lua
   [script nomain] lib/theme_appearance.lua
   [script nomain] lib/theme_files.lua
+  [script nomain] lib/gridbox_placement.lua
 @about
   Select Studio Graphite Console from Options > Themes after installing.
-  Install ReaImGui 0.10 or later for Transport Buttons settings, js_ReaScriptAPI
-  for both Folder Annex buttons and app focus, and SWS/S&M Extension for Mixer docking and the mixer annex.
-  These packages are available in ReaTeam Extensions.
-  Default app buttons find supported scripts in the current install's Main Action List.
+  ReaImGui 0.10 or later is required for Transport Buttons settings.
+  js_ReaScriptAPI supports both Folder Annexes, app window focus, FTC dockers and Gridbox, and Shift-click iQ.
+  SWS/S&M Extension is required for the mixer Folder Annex and docked Mixer focus.
+  Install the optional docker and Gridbox scripts from the FTC Tools repository.
+  The README has the font downloads and the optional Folder Annex startup setup.

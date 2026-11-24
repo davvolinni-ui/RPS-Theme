@@ -1,6 +1,7 @@
 -- @noindex
 local r = reaper
-local tcp = ... == "tcp"
+local mode, toolbarCommand = ...
+local tcp = mode == "tcp"
 local title = tcp and "Studio Graphite Console - TCP Folder Annex" or "Studio Graphite Console - Mixer Folder Footer"
 local parameterName = tcp and "tcpFolderAnnex" or "mcpFolderFooter"
 local themeName = "studio graphite console"
@@ -519,6 +520,10 @@ local function publishToggle(state)
   if actionCommand and actionCommand > 0 then
     r.SetToggleCommandState(actionSection, actionCommand, state)
     r.RefreshToolbar2(actionSection, actionCommand)
+  end
+  if toolbarCommand and toolbarCommand > 0 and toolbarCommand ~= actionCommand then
+    r.SetToggleCommandState(0, toolbarCommand, state)
+    r.RefreshToolbar2(0, toolbarCommand)
   end
 end
 publishToggle(1)

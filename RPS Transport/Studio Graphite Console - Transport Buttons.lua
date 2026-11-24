@@ -8,15 +8,29 @@ local footerFilename = "Studio Graphite Console - Mixer Folder Footer.lua"
 local scriptPath = debug.getinfo(1, "S").source:sub(2)
 local scriptFolder = scriptPath:match("^(.*[/\\])") or ""
 
+local mixerAnnex = {key = "Annex", label = "Folder Annex", renderer = footerFilename, parameter = "mcpFolderFooter"}
+local tcpAnnex = {
+  key = "TcpAnnex", label = "TCP Folder Annex",
+  action = "Studio Graphite Console - Toggle TCP Folder Annex.lua",
+  renderer = "Studio Graphite Console - TCP Folder Annex Renderer.lua", parameter = "tcpFolderAnnex",
+}
 local buttons = {
   {key = "Browse", label = "ReaBrowse", app = true, file = "ReaBrowse.lua", native = 50124, nativeLabel = "Media Explorer"},
   {key = "Drum", label = "ReaDrumXT", app = true, file = "ReaDrum.lua"},
   {key = "Spect", label = "ReaSpect", app = true, file = "ReaSpect.lua"},
   {key = "Roll", label = "ReaRoll", app = true, file = "ReaRoll.lua", native = 40153, nativeLabel = "MIDI editor (selected MIDI item)"},
-  {key = "Annex", label = "Folder Annex"},
+  mixerAnnex,
   {key = "Mixer", label = "Mixer", command = 40078},
-  {key = "TcpAnnex", label = "TCP Folder Annex", filename = "Studio Graphite Console - Toggle TCP Folder Annex.lua"},
+  tcpAnnex,
 }
+
+local dockerButtons = {
+  {key = "DockerLeft", label = "Left docker", file = "Toggle show left docker.lua"},
+  {key = "DockerBottom", label = "Bottom docker", file = "Toggle show bottom docker.lua"},
+  {key = "DockerRight", label = "Right docker", file = "Toggle show right docker.lua"},
+}
+local quantizeButton = {key = "Quantize", label = "Input Quantize", filename = "Studio Graphite Console - Input Quantize.lua"}
+local optionalButtons = {quantizeButton, table.unpack(dockerButtons)}
 
 local function usingTheme()
   local filename = (r.GetLastColorThemeFile() or ""):match("[^/\\]+$")
@@ -60,6 +74,145 @@ local function checkedOverride(text)
 end
 
 local launcher = assert(loadfile(scriptFolder .. "lib/app_launcher.lua"))()
+
+local function defaultBinding(button)
+  if button.file and not button.app then
+    local found, problem = launcher.discover(r, button)
+    if found then return found.id end
+    return nil, problem or ("Install FeedTheCat's " .. button.file ..
+      " or enter a Custom command."), not problem
+  end
+  local names = {Browse = "Open ReaBrowse", Drum = "Open ReaDrumXT", Spect = "Open ReaSpect",
+    Roll = "Open ReaRoll", Annex = "Toggle Folder Annex", TcpAnnex = "Toggle TCP Folder Annex",
+    Mixer = "Toggle Mixer", Settings = "Transport Buttons"}
+  local path = scriptFolder .. (button == quantizeButton and button.filename or
+    "Studio Graphite Console - " .. names[button.key] .. ".lua")
+  local command = r.AddRemoveReaScript(true, 0, path, true)
+  if not command or command == 0 then return nil, "Could not register " .. path end
+  local named = r.ReverseNamedCommandLookup(command)
+  if not named or named == "" then return nil, "Could not resolve the default action." end
+  return named:sub(1, 1) == "_" and named or "_" .. named
+end
+
+local function validateBinding(button, text, choice)
+  local normalized = text:match("^%s*(.-)%s*$")
+  local command, message = checkedOverride(normalized)
+  if not command then return nil, button.label .. ". " .. message end
+  -- Persist named IDs for scripts and custom actions, which can have different numeric IDs.
+  local named = r.ReverseNamedCommandLookup(command)
+  if named and named ~= "" then normalized = named:sub(1, 1) == "_" and named or "_" .. named end
+  return {key = button.key, id = normalized, choice = choice}
+end
+
+local function recoverBinding(button)
+  local key = button.key
+  local saved = r.GetExtState(settings, "binding_" .. key)
+  local choice = r.GetExtState(settings, "choice_" .. key)
+  if checkedOverride(saved) then
+    return validateBinding(button, saved, choice == "Custom" and "Custom" or "Default")
+  end
+  if choice == "Custom" then
+    return nil, button.label .. ". Reassign its Custom action under Advanced."
+  end
+  local id, problem = defaultBinding(button)
+  if not id then return nil, problem end
+  return validateBinding(button, id, "Default")
+end
+
+local function rememberBinding(entry)
+  local key = entry.key
+  r.SetExtState(settings, "choice_" .. key, entry.choice, true)
+  r.DeleteExtState(settings, "command_" .. key, true)
+  r.SetExtState(settings, "binding_" .. key, entry.id, true)
+end
+
+local function parameterValue(index)
+  local _, _, current = r.ThemeLayout_GetParameter(index)
+  return current
+end
+
+local function requestGridboxAlignment(indices, onReapplied)
+  local ok, message = pcall(function()
+    local placement = dofile(scriptFolder .. "lib/gridbox_placement.lua")
+    return placement.apply(r, function(key) return parameterValue(indices[key]) end, onReapplied)
+  end)
+  if ok then return message end
+  return "Gridbox alignment failed. " .. tostring(message)
+end
+
+local function alignVisibleGridbox(indices)
+  if indices.sgcIQGridbox and indices.sgcInputQuantizeVisible and parameterValue(indices.sgcIQGridbox) == 1
+      and parameterValue(indices.sgcInputQuantizeVisible) == 1 then
+    return requestGridboxAlignment(indices)
+  end
+end
+
+local function enabledOptionalButtons(indices)
+  local enabled = {}
+  for _, button in ipairs(optionalButtons) do
+    local name = button == quantizeButton and "sgcInputQuantizeVisible" or "sgc" .. button.key .. "Visible"
+    if indices[name] and parameterValue(indices[name]) == 1 then enabled[#enabled + 1] = button end
+  end
+  return enabled
+end
+
+local function reloadTransportTheme(path, indices)
+  local saved = {}
+  for key, index in pairs(indices) do saved[key] = parameterValue(index) end
+  if r.OpenColorThemeFile(path) == false then return end
+  local updated = parameters()
+  local refresh = false
+  for key, current in pairs(saved) do
+    local index = updated[key]
+    if index and parameterValue(index) ~= current then
+      -- Preserve live overrides without turning them into theme defaults.
+      r.ThemeLayout_SetParameter(index, current, false)
+      refresh = true
+    end
+  end
+  if refresh then r.ThemeLayout_RefreshAll() end
+  return updated
+end
+
+local function initializeOptionalButtons()
+  if not usingTheme() or r.GetPlayState() & 5 ~= 0 then return end
+  local indices = parameters()
+  local enabled = enabledOptionalButtons(indices)
+  if #enabled == 0 then return end
+
+  local theme = r.GetLastColorThemeFile()
+  if not r.file_exists(theme) and r.file_exists(theme .. "Zip") then theme = theme .. "Zip" end
+  local bindings = dofile(scriptFolder .. "lib/theme_bindings.lua")
+  local keys = {}
+  for _, button in ipairs(enabled) do keys[#keys + 1] = button.key end
+  local assigned = bindings.readAll(theme, keys)
+  local commands, recovered = {}, {}
+  local needsReload = false
+  for _, button in ipairs(enabled) do
+    if checkedOverride(assigned[button.key] or "") then
+      needsReload = true
+    else
+      local entry = recoverBinding(button)
+      if entry then
+        commands[entry.key] = entry.id
+        recovered[#recovered + 1] = entry
+      end
+    end
+  end
+  if #recovered > 0 then
+    local path = bindings.applyAll(theme, commands)
+    if path then
+      for _, entry in ipairs(recovered) do rememberBinding(entry) end
+      theme, needsReload = path, true
+    end
+  end
+  -- Re-read the transport's custom actions after REAPER has loaded the local Action List.
+  if needsReload then
+    local updated = reloadTransportTheme(theme, indices)
+    if updated then alignVisibleGridbox(updated) end
+  end
+end
+
 local function openApp(button)
   local ok, message = launcher.open(r, button, settings)
   if not ok then r.MB(message, title, 0) end
@@ -77,8 +230,7 @@ local function openMixer(button)
   r.Main_OnCommand(button.command, 0)
 end
 
-local function footerCommand(filename)
-  filename = filename or footerFilename
+local function registeredCommand(filename)
   local resource = r.GetResourcePath()
   local registrations = io.open(resource .. "/reaper-kb.ini", "r")
   if not registrations then return 0 end
@@ -115,8 +267,51 @@ local function footerCommand(filename)
   return command
 end
 
-local function defaultCommand(button)
-  return button.command or footerCommand(button.filename)
+local function annexCommand(button)
+  local command = registeredCommand(button.renderer)
+  if command > 0 then return command end
+  local path = scriptFolder .. button.renderer
+  if button == mixerAnnex and not r.file_exists(path) then path = scriptFolder .. "../" .. button.renderer end
+  if not r.file_exists(path) then return 0 end
+  return r.AddRemoveReaScript(true, 0, path, true)
+end
+
+local function annexRunning(command)
+  return r.GetToggleCommandStateEx(0, command) == 1
+end
+
+local function toggleAnnex(button)
+  local command = annexCommand(button)
+  if command == 0 then
+    r.MB("Reinstall the companion scripts for " .. button.label .. ".", title, 0)
+    return
+  end
+  local wasRunning = annexRunning(command)
+  r.Main_OnCommand(command, 0)
+  local running = annexRunning(command)
+  if running ~= wasRunning then
+    r.SetExtState(settings, "annex_" .. button.key, running and "1" or "0", true)
+  end
+end
+
+local function restoreAnnexes()
+  if not usingTheme() or not (r.JS_Composite and r.JS_LICE_CreateBitmap and r.JS_Window_InvalidateRect) then return end
+  local indices
+  for _, button in ipairs({mixerAnnex, tcpAnnex}) do
+    if r.GetExtState(settings, "annex_" .. button.key) == "1" and (button == tcpAnnex or r.BR_Win32_GetMixerHwnd) then
+      indices = indices or parameters()
+      if indices[button.parameter] then
+        local command = annexCommand(button)
+        if command > 0 and not annexRunning(command) then r.Main_OnCommand(command, 0) end
+      end
+    end
+  end
+end
+
+local function renderTcpAnnex()
+  local render = loadfile(scriptFolder .. footerFilename)
+  if not render then render = assert(loadfile(scriptFolder .. "../" .. footerFilename)) end
+  render("tcp", registeredCommand(tcpAnnex.action))
 end
 
 local function runButton(button)
@@ -128,13 +323,8 @@ local function runButton(button)
     openApp(button)
   elseif button.key == "Mixer" then
     openMixer(button)
-  else
-    local command = defaultCommand(button)
-    if command > 0 then
-      r.Main_OnCommand(command, 0)
-    else
-      r.MB("Load " .. (button.filename or footerFilename) .. " into REAPER's Main Action List first.", title, 0)
-    end
+  elseif button.renderer then
+    toggleAnnex(button)
   end
 end
 
@@ -159,18 +349,23 @@ local function openSettings()
     if button.key ~= "TcpAnnex" or indices.rpsTransTcpAnnex then configurable[#configurable + 1] = button end
   end
   configurable[#configurable + 1] = {key = "Settings", label = "Settings"}
+  for _, button in ipairs(dockerButtons) do
+    if indices["sgc" .. button.key .. "Visible"] then configurable[#configurable + 1] = button end
+  end
   if r.set_action_options then r.set_action_options(1) end
   local keys = {}
   for _, button in ipairs(configurable) do keys[#keys + 1] = button.key end
-  local drafts = bindings.readAll(r.GetLastColorThemeFile(), keys)
-  local notes, choices, detected, descriptions = {}, {}, {}, {}
+  if indices.sgcInputQuantizeVisible then keys[#keys + 1] = quantizeButton.key end
+  local assigned = bindings.readAll(r.GetLastColorThemeFile(), keys)
+  local drafts = {}
+  local choices = {}
   for _, button in ipairs(configurable) do
     local key = button.key
-    drafts[key] = drafts[key] or ""
+    drafts[key] = assigned[key] or ""
+    if drafts[key] == "0" then drafts[key] = "" end
     local saved = r.GetExtState(settings, "choice_" .. key)
     local command = resolve(drafts[key])
     local description = command > 0 and r.kbd_getTextFromCmd(command, 0) or ""
-    descriptions[key] = description
     local savedBinding = r.GetExtState(settings, "binding_" .. key)
     if command > 0 and drafts[key] == savedBinding and
         (saved == "Default" or saved == "Custom" or (saved == "Native" and button.native)) then
@@ -182,86 +377,91 @@ local function openSettings()
     else
       choices[key] = "Custom"
     end
-    if button.app then
-      local found, problem = launcher.discover(r, button)
-      detected[key] = found and ("Found: " .. found.path) or problem or (button.label .. " not found in the Main Action List.")
-    end
   end
 
-  local function defaultBinding(button)
-    local names = {Browse = "Open ReaBrowse", Drum = "Open ReaDrumXT", Spect = "Open ReaSpect",
-      Roll = "Open ReaRoll", Annex = "Toggle Folder Annex", TcpAnnex = "Toggle TCP Folder Annex",
-      Mixer = "Toggle Mixer", Settings = "Transport Buttons"}
-    local path = scriptFolder .. "Studio Graphite Console - " .. names[button.key] .. ".lua"
-    local command = r.AddRemoveReaScript(true, 0, path, true)
-    if not command or command == 0 then return nil, "Could not register " .. path end
-    local named = r.ReverseNamedCommandLookup(command)
-    if not named or named == "" then return nil, "Could not resolve the default action." end
-    return named:sub(1, 1) == "_" and named or "_" .. named
-  end
-  local pendingReload, failedReload
+  local pendingReload, failedReload, bindingNote, optionalNote
   local function queueReload(path, notify)
     pendingReload = {path = path, notify = notify}
   end
 
-  local function apply(button, text, choice)
-    local normalized = text:match("^%s*(.-)%s*$")
-    local command, message = checkedOverride(normalized)
-    if not command then notes[button.key] = message; return end
-    -- Persist named IDs for scripts/custom actions, not installation-specific numeric IDs.
-    local named = r.ReverseNamedCommandLookup(command)
-    if named and named ~= "" then normalized = named:sub(1, 1) == "_" and named or "_" .. named end
-    local activePath = r.GetLastColorThemeFile()
-    local path, changed = bindings.apply(activePath, button.key, normalized)
-    if not path then notes[button.key] = changed; return end
-    r.SetExtState(settings, "choice_" .. button.key, choice, true)
-    choices[button.key] = choice
-    r.DeleteExtState(settings, "command_" .. button.key, true)
-    r.SetExtState(settings, "binding_" .. button.key, normalized, true)
-    local description = r.kbd_getTextFromCmd(command, 0)
-    drafts[button.key], descriptions[button.key] = normalized, description
+  local function saveBindings(entries, message, showStatus)
+    local commands = {}
+    for _, entry in ipairs(entries) do commands[entry.key] = entry.id end
+    local path, changed = bindings.applyAll(r.GetLastColorThemeFile(), commands)
+    if not path then return false, changed end
+    for _, entry in ipairs(entries) do
+      local key = entry.key
+      choices[key], drafts[key], assigned[key] = entry.choice, entry.id, entry.id
+      rememberBinding(entry)
+    end
     if changed or failedReload == path then
-      notes[button.key] = "Saved: " .. description
       queueReload(path, function(success)
-        notes[button.key] = success and ("Applied: " .. description) or
-          "Saved, but REAPER could not reload the theme. Apply again to retry."
+        if success then showStatus(message)
+        else showStatus("Saved. REAPER could not reload the theme. Apply again to retry.") end
       end)
     else
-      notes[button.key] = "Already assigned: " .. description
+      showStatus(message)
     end
+    return true
+  end
+
+  local function applyOptional(button)
+    if checkedOverride(assigned[button.key] or "") then return true end
+    local entry, errorText = recoverBinding(button)
+    if not entry then return false, errorText end
+    return saveBindings({entry}, nil, function(note) optionalNote = note or optionalNote end)
+  end
+
+  local function applyChoices(selected, all)
+    local entries, unavailable = {}, 0
+    for _, button in ipairs(selected) do
+      local choice = choices[button.key]
+      local id, problem, missing
+      if choice == "Custom" then id = drafts[button.key]
+      elseif choice == "Native" then id = tostring(button.native)
+      else id, problem, missing = defaultBinding(button) end
+      if id then
+        local entry, errorText = validateBinding(button, id, choice)
+        if not entry then bindingNote = errorText; return end
+        entries[#entries + 1] = entry
+      elseif all and missing then
+        unavailable = unavailable + 1
+      else
+        bindingNote = problem
+        return
+      end
+    end
+    local message = all and ("Applied " .. #entries .. " bindings.") or ("Applied " .. selected[1].label .. ".")
+    if unavailable > 0 then message = message .. " Unavailable docker actions: " .. unavailable .. "." end
+    local ok, problem = saveBindings(entries, message, function(note) bindingNote = note end)
+    if not ok then bindingNote = problem end
   end
 
   local function value(key)
-    local _, _, current = r.ThemeLayout_GetParameter(indices[key])
-    return current
+    return parameterValue(indices[key])
+  end
+
+  local function alignGridbox()
+    optionalNote = requestGridboxAlignment(indices, function(message) optionalNote = message end)
+  end
+
+  local function updateGridboxAlignment()
+    optionalNote = alignVisibleGridbox(indices) or optionalNote
   end
 
   local function reloadTheme()
     local request = pendingReload
     pendingReload = nil
-    local saved = {}
-    for key, index in pairs(indices) do
-      local _, _, current = r.ThemeLayout_GetParameter(index)
-      saved[key] = current
-    end
-    if r.OpenColorThemeFile(request.path) == false then
+    local updated = reloadTransportTheme(request.path, indices)
+    if not updated then
       failedReload = request.path
       request.notify(false)
       return
     end
     failedReload = nil
-    indices = parameters()
-    local refresh = false
-    for key, current in pairs(saved) do
-      local index = indices[key]
-      if index and value(key) ~= current then
-        -- This restores live overrides without turning them into theme defaults.
-        r.ThemeLayout_SetParameter(index, current, false)
-        refresh = true
-      end
-    end
-    if refresh then r.ThemeLayout_RefreshAll() end
+    indices = updated
     request.notify(true)
+    updateGridboxAlignment()
   end
 
   local appearanceLoaded, appearanceError, appearanceNote
@@ -332,7 +532,8 @@ local function openSettings()
       changedAny = true
     end
     I.SetNextItemWidth(ctx, 140)
-    local changed, placement = I.Combo(ctx, "Placement", value("rpsTransPlacement"), "Auto\0Left\0Right\0")
+    local changed, placement = I.Combo(ctx, "RPS button placement", value("rpsTransPlacement"),
+      "Auto\0Left\0Right\0Far Left\0Far Right\0")
     if changed then save("rpsTransPlacement", placement) end
     local tipsChanged, tips = I.Checkbox(ctx, "Show transport button tooltips", value("rpsTransTooltips") == 1)
     if tipsChanged then save("rpsTransTooltips", tips and 1 or 0) end
@@ -347,58 +548,107 @@ local function openSettings()
       end
     end
 
-    if I.CollapsingHeader(ctx, "Button actions") then
-      I.TextWrapped(ctx, "Default uses the bundled launcher for your installed app. Native uses REAPER. Custom accepts a Main Action List command ID. Apply saves your choice into the theme; Reset applies Default.")
-      for _, button in ipairs(configurable) do
-        local key = button.key
-        I.PushID(ctx, key)
-        I.Text(ctx, button.label)
-        local options = button.native and {"Default", "Native", "Custom"} or {"Default", "Custom"}
-        local selected = 0
-        for i, option in ipairs(options) do if option == choices[key] then selected = i - 1 end end
-        I.SetNextItemWidth(ctx, 205)
-        local changedChoice, nextChoice = I.Combo(ctx, "##ActionType", selected, table.concat(options, "\0") .. "\0")
-        if changedChoice then choices[key], notes[key] = options[nextChoice + 1], nil end
-        if choices[key] == "Custom" then
-          I.SetNextItemWidth(ctx, 205)
-          local edited, text = I.InputText(ctx, "Command ID", drafts[key])
-          if edited and text ~= drafts[key] then
-            local command = resolve(text:match("^%s*(.-)%s*$"))
-            drafts[key], notes[key] = text, nil
-            descriptions[key] = command > 0 and r.kbd_getTextFromCmd(command, 0) or ""
-          end
-        elseif choices[key] == "Native" then
-          I.TextWrapped(ctx, button.nativeLabel)
-        elseif button.app then
-          I.TextWrapped(ctx, detected[key])
-        end
-        if I.Button(ctx, "Apply") then
-          local command, message
-          if choices[key] == "Custom" then command = drafts[key]
-          elseif choices[key] == "Native" then command = tostring(button.native)
-          else command, message = defaultBinding(button) end
-          if command then apply(button, command, choices[key]) else notes[key] = message end
-        end
-        I.SameLine(ctx)
-        if I.Button(ctx, "Reset") then
-          if button.app then
-            local found, problem = launcher.discover(r, button)
-            detected[key] = found and ("Found: " .. found.path) or problem or (button.label .. " not found in the Main Action List.")
-          end
-          local command, message = defaultBinding(button)
-          if command then apply(button, command, "Default") else notes[key] = message end
-        end
-        if notes[key] then
-          I.TextWrapped(ctx, notes[key])
-        elseif descriptions[key] == "" then
-          I.TextWrapped(ctx, "Not mapped—click Reset or assign an action.")
+    if indices.sgcInputQuantizeVisible then
+      local changedQuantize, shown = I.Checkbox(ctx, "Input Quantize (iQ)", value("sgcInputQuantizeVisible") == 1)
+      if changedQuantize then
+        optionalNote = nil
+        local ready, message = true
+        if shown then ready, message = applyOptional(quantizeButton) end
+        if ready then
+          save("sgcInputQuantizeVisible", shown and 1 or 0)
         else
-          I.TextWrapped(ctx, "Action: " .. descriptions[key])
+          optionalNote = message
         end
-        I.PopID(ctx)
+      end
+      local _, quantizeActive = r.GetProjExtState(0, "StudioGraphiteConsole.InputQuantize", "active")
+      if quantizeActive == "1" then
+        I.SameLine(ctx)
+        if I.Button(ctx, "Turn iQ off") then
+          local action, problem = loadfile(scriptFolder .. quantizeButton.filename)
+          if action then action("off") else optionalNote = problem end
+        end
       end
     end
-    if changedAny then r.ThemeLayout_RefreshAll() end
+    if indices.sgcIQPlacement then
+      local current = value("sgcIQPlacement")
+      local side = current == 0 and 0 or current == 3 and 2 or 1
+      I.SetNextItemWidth(ctx, 140)
+      local moved, placement = I.Combo(ctx, "iQ placement", side, "Transport\0Left\0Right\0")
+      if moved then save("sgcIQPlacement", placement == 0 and 0 or placement + 1) end
+    end
+    if indices.sgcIQGridbox then
+      local changedAlignment, aligned = I.Checkbox(ctx, "Align Gridbox with iQ", value("sgcIQGridbox") == 1)
+      if changedAlignment then save("sgcIQGridbox", aligned and 1 or 0) end
+      if aligned and value("sgcInputQuantizeVisible") == 1 then
+        I.SameLine(ctx)
+        if I.Button(ctx, "Realign") then alignGridbox() end
+      end
+    end
+    for _, button in ipairs(dockerButtons) do
+      local key = "sgc" .. button.key .. "Visible"
+      if indices[key] then
+        local changedDocker, shown = I.Checkbox(ctx, button.label, value(key) == 1)
+        if changedDocker then
+          optionalNote = nil
+          local ready, message = true
+          if shown then ready, message = applyOptional(button) end
+          if ready then
+            save(key, shown and 1 or 0)
+          else
+            optionalNote = message
+          end
+        end
+      end
+    end
+    if indices.sgcDockerPlacement then
+      I.SetNextItemWidth(ctx, 140)
+      local dockerSide = value("sgcDockerPlacement") == 1 and 0 or 1
+      local placementChanged, dockerPlacement = I.Combo(ctx, "Docker button placement", dockerSide, "Far Left\0Far Right\0")
+      if placementChanged then save("sgcDockerPlacement", dockerPlacement + 1) end
+    end
+    if optionalNote then I.TextWrapped(ctx, optionalNote) end
+
+    if I.CollapsingHeader(ctx, "Advanced") then
+      if I.BeginTable(ctx, "Button bindings", 4, I.TableFlags_SizingStretchProp) then
+        I.TableSetupColumn(ctx, "Button", I.TableColumnFlags_WidthStretch, 1.15)
+        I.TableSetupColumn(ctx, "Action", I.TableColumnFlags_WidthFixed, 86)
+        I.TableSetupColumn(ctx, "Command ID", I.TableColumnFlags_WidthStretch, 1)
+        I.TableSetupColumn(ctx, "", I.TableColumnFlags_WidthFixed, 45)
+        I.TableHeadersRow(ctx)
+        for _, button in ipairs(configurable) do
+          local key = button.key
+          I.PushID(ctx, key)
+          I.TableNextRow(ctx)
+          I.TableSetColumnIndex(ctx, 0)
+          I.AlignTextToFramePadding(ctx)
+          I.Text(ctx, button.label)
+          I.TableSetColumnIndex(ctx, 1)
+          local options = button.native and {"Default", "Native", "Custom"} or {"Default", "Custom"}
+          local selected = 0
+          for i, option in ipairs(options) do if option == choices[key] then selected = i - 1 end end
+          I.SetNextItemWidth(ctx, -1)
+          local changedChoice, nextChoice = I.Combo(ctx, "##Action", selected, table.concat(options, "\0") .. "\0")
+          if changedChoice then choices[key], bindingNote = options[nextChoice + 1], nil end
+          if choices[key] == "Native" then I.SetItemTooltip(ctx, button.nativeLabel) end
+          I.TableSetColumnIndex(ctx, 2)
+          if choices[key] == "Custom" then
+            I.SetNextItemWidth(ctx, -1)
+            local edited, text = I.InputText(ctx, "##Command ID", drafts[key])
+            if edited then drafts[key], bindingNote = text, nil end
+          end
+          I.TableSetColumnIndex(ctx, 3)
+          if I.Button(ctx, "Apply", -1) then applyChoices({button}, false) end
+          I.PopID(ctx)
+        end
+        I.EndTable(ctx)
+      end
+      if I.Button(ctx, "Apply All") then applyChoices(configurable, true) end
+      if bindingNote then I.TextWrapped(ctx, bindingNote) end
+    end
+    if changedAny then
+      r.ThemeLayout_RefreshAll()
+      if not pendingReload then updateGridboxAlignment() end
+    end
   end
 
   local function frame()
@@ -427,13 +677,35 @@ local function openSettings()
     if open then r.defer(frame)
     elseif pendingReload then r.defer(function() if usingTheme() then reloadTheme() end end) end
   end
+  local recovered, problems = {}, {}
+  for _, button in ipairs(enabledOptionalButtons(indices)) do
+    if not checkedOverride(assigned[button.key] or "") then
+      local entry, problem = recoverBinding(button)
+      if entry then recovered[#recovered + 1] = entry
+      elseif problem then problems[#problems + 1] = problem end
+    end
+  end
+  if #problems > 0 then optionalNote = table.concat(problems, "\n") end
+  if #recovered > 0 then
+    local ok, problem = saveBindings(recovered, nil, function(note) optionalNote = note or optionalNote end)
+    if not ok then optionalNote = problem end
+  end
+  if not pendingReload then updateGridboxAlignment() end
   r.defer(frame)
 end
 
 -- Retire a highlight worker still running from an older version.
 r.DeleteExtState(settings, "stateMonitorOwner", false)
 
-if type(mode) == "string" then
+if mode == "startup" then
+  -- Called once from REAPER's Scripts/__startup.lua, without opening Settings.
+  r.defer(function()
+    initializeOptionalButtons()
+    restoreAnnexes()
+  end)
+elseif mode == "renderTcpAnnex" then
+  renderTcpAnnex()
+elseif type(mode) == "string" then
   for _, button in ipairs(buttons) do
     if button.label == mode then
       runButton(button)
